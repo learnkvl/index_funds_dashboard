@@ -1,0 +1,70 @@
+<!-- 404.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found | ETF Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .error-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-content {
+            text-align: center;
+            max-width: 600px;
+        }
+        .error-code {
+            font-size: 8rem;
+            font-weight: bold;
+            color: #007bff;
+            line-height: 1;
+        }
+        .error-message {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">📈 ETF Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="error-container">
+        <div class="error-content">
+            <div class="error-code">404</div>
+            <h1 class="mb-4">Page Not Found</h1>
+            <p class="error-message">
+                The ETF or page you're looking for doesn't exist or may have been moved.
+            </p>
+            
+            <div class="d-grid gap-2 d-md-block">
+                <a href="/" class="btn btn-primary btn-lg">
+                    <i class="bi bi-house"></i> Back to Dashboard
+                </a>
+                <button class="btn btn-outline-secondary btn-lg" onclick="history.back()">
+                    <i class="bi bi-arrow-left"></i> Go Back
+                </button>
+            </div>
+
+            <div class="mt-5">
+                <h5>Popular ETFs:</h5>
+                <div class="d-flex justify-content-center flex-wrap gap-2 mt-3">
+                    <a href="/etf/SPY" class="btn btn-outline-primary btn-sm">SPY</a>
+                    <a href="/etf/QQQ" class="btn btn-outline-primary btn-sm">QQQ</a>
+                    <a href="/etf/IWM" class="btn btn-outline-primary btn-sm">IWM</a>
+                    <a href="/etf/VTI" class="btn btn-outline-primary btn-sm">VTI</a>
+                    <a href="/etf/EFA" class="btn btn-outline-primary btn-sm">EFA</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

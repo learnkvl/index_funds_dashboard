@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF Screener | ETF Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .filter-card { 
+            border-left: 4px solid #007bff; 
+            transition: transform 0.2s;
+        }
+        .filter-card:hover { transform: translateY(-2px); }
+        .results-table { max-height: 600px; overflow-y: auto; }
+        .metric-badge { font-size: 0.9rem; }
+        .loading { display: none; }
+        .loading.show { display: block; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <span>← Back to Dashboard</span>
+            </a>
+            <h4 class="text-white mb-0">🔍 ETF Screener</h4>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Filters Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card filter-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Screening Filters</h5>
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="resetFilters()">Reset</button>
+                            <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- RSI Filters -->
+                            <div class="col-md-3">
+                                <h6>RSI Range</h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Min RSI</label>
+                                        <input type="number" class="form-control" id="rsiMin" min="0" max="100" placeholder="0">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Max RSI</label>
+                                        <input type="number" class="form-control" id="rsiMax" min="0" max="100" placeholder="100">
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-outline-success btn-sm me-1" onclick="setRSIFilter(0, 30)">Oversold</button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="setRSIFilter(70, 100)">Overbought</button>
+                                </div>
+                            </div>
+
+                            <!-- Price Filters -->
+                            <div class="col-md-3">
+                                <h6>Price Range</h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Min Price ($)</label>
+                                        <input type="number" class="form-control" id="priceMin" min="0" step="0.01" placeholder="0">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Max Price ($)</label>
+                                        <input type="number" class="form-control" id="priceMax" min="0" step="0.01" placeholder="1000">
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-outline-primary btn-sm me-1" onclick="setPriceFilter(0, 50)">Under $50</button>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="setPriceFilter(50, 200)">$50-$200</button>
+                                </div>
+                            </div>
+
+                            <!-- Volume Filter -->
+                            <div class="col-md-2">
+                                <h6>Volume</h6>
+                                <label class="form-label">Min Volume</label>
+                                <input type="number" class="form-control" id="volumeMin" min="0" placeholder="0">
+                                <div class="mt-2">
+                                    <button class="btn btn-outline-info btn-sm" onclick="setVolumeFilter(1000000)">1M+</button>
+                                </div>
+                            </div>
+
+                            <!-- Time Period -->
+                            <div class="col-md-2">
+                                <h6>Time Period</h6>
+                                <select class="form-select" id="periodSelect">
+                                    <option value="1mo">1 Month</option>
+                                    <option value="3mo">3 Months</option>
+                                    <option value="6mo" selected>6 Months</option>
+                                    <option value="1y">1 Year</option>
+                                    <option value="2y">2 Years</option>
+                                </select>
+                            </div>
+
+                            <!-- Sort Options -->
+                            <div class="col-md-2">
+                                <h6>Sort By</h6>
+                                <select class="form-select" id="sortBy">
+                                    <option value="rsi">RSI (Low to High)</option>
+                                    <option value="rsi_desc">RSI (High to Low)</option>
+                                    <option value="price">Price (Low to High)</option>
+                                    <option value="price_desc">Price (High to Low)</option>
+                                    <option value="volume_desc">Volume (High to Low)</option>
+                                    <option value="ticker">Ticker (A-Z)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading indicator -->
+        <div class="loading text-center" id="loadingIndicator">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Screening ETFs...</p>
+        </div>
+
+        <!-- Results Summary -->
+        <div class="row mb-3" id="resultsSummary" style="display: none;">
+            <div class="col-12">
+                <div class="alert alert-info d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong id="resultsCount">0</strong> ETFs match your criteria
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="exportResults()">Export CSV</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Screening Results</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="results-table">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Name</th>
+                                        <th>RSI</th>
+                                        <th>Price</th>
+                                        <th>Volume</th>
+                                        <th>Signal</th>
+                                        <th>Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsTableBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-5">
+                                            Click "Apply Filters" to screen ETFs
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Preset Filters -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Quick Presets</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <button class="btn btn-success w-100 mb-2" onclick="applyPreset('oversold')">
+                                    Oversold ETFs<br><small>(RSI < 30)</small>
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-danger w-100 mb-2" onclick="applyPreset('overbought')">
+                                    Overbought ETFs<br><small>(RSI > 70)</small>
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-info w-100 mb-2" onclick="applyPreset('high_volume')">
+                                    High Volume<br><small>(Vol > 1M)</small>
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-warning w-100 mb-2" onclick="applyPreset('low_price')">
+                                    Low Price<br><small>(< $50)</small>
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-secondary w-100 mb-2" onclick="applyPreset('normal_rsi')">
+                                    Normal RSI<br><small>(30-70)</small>
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-outline-primary w-100 mb-2" onclick="applyPreset('all')">
+                                    Show All<br><small>(No filters)</small>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentResults = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load all ETFs initially
+            applyPreset('all');
+        });
+
+        function showLoading(show = true) {
+            const loading = document.getElementById('loadingIndicator');
+            const summary = document.getElementById('resultsSummary');
+            
+            if (show) {
+                loading.classList.add('show');
+                summary.style.display = 'none';
+            } else {
+                loading.classList.remove('show');
+                summary.style.display = 'block';
+            }
+        }
+
+        async function applyFilters() {
+            showLoading(true);
+
+            const filters = {
+                rsi_min: document.getElementById('rsiMin').value || null,
+                rsi_max: document.getElementById('rsiMax').value || null,
+                price_min: document.getElementById('priceMin').value || null,
+                price_max: document.getElementById('priceMax').value || null,
+                volume_min: document.getElementById('volumeMin').value || null,
+                period: document.getElementById('periodSelect').value
+            };
+
+            try {
+                const params = new URLSearchParams();
+                Object.keys(filters).forEach(key => {
+                    if (filters[key] !== null && filters[key] !== '') {
+                        params.append(key, filters[key]);
+                    }
+                });
+
+                const response = await fetch(`/api/etfs/filter?${params.toString()}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Error loading data: ' + data.error);
+                    return;
+                }
+
+                currentResults = data;
+                updateResults(data);
+
+            } catch (error) {
+                console.error('Error filtering ETFs:', error);
+                alert('Error loading data. Please try again.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateResults(results) {
+            const tbody = document.getElementById('resultsTableBody');
+            const resultsCount = document.getElementById('resultsCount');
+            
+            // Sort results
+            const sortBy = document.getElementById('sortBy').value;
+            sortResults(results, sortBy);
+            
+            resultsCount.textContent = results.length;
+            tbody.innerHTML = '';
+
+            if (results.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="8" class="text-center text-muted py-5">No ETFs match your criteria</td>';
+                tbody.appendChild(row);
+                return;
+            }
+
+            results.forEach(etf => {
+                const row = document.createElement('tr');
+                const rsiClass = getRSIClass(etf.rsi);
+                const signalInfo = getSignalInfo(etf.rsi);
+                
+                row.innerHTML = `
+                    <td><strong>${etf.ticker}</strong></td>
+                    <td>${etf.name || etf.ticker}</td>
+                    <td><span class="${rsiClass} metric-badge">${etf.rsi.toFixed(2)}</span></td>
+                    <td>$${etf.price.toFixed(2)}</td>
+                    <td>${formatVolume(etf.volume)}</td>
+                    <td><span class="badge ${signalInfo.class}">${signalInfo.text}</span></td>
+                    <td>${etf.date}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="window.open('/etf/${etf.ticker}', '_blank')">
+                            Analyze
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function sortResults(results, sortBy) {
+            switch(sortBy) {
+                case 'rsi':
+                    results.sort((a, b) => a.rsi - b.rsi);
+                    break;
+                case 'rsi_desc':
+                    results.sort((a, b) => b.rsi - a.rsi);
+                    break;
+                case 'price':
+                    results.sort((a, b) => a.price - b.price);
+                    break;
+                case 'price_desc':
+                    results.sort((a, b) => b.price - a.price);
+                    break;
+                case 'volume_desc':
+                    results.sort((a, b) => b.volume - a.volume);
+                    break;
+                case 'ticker':
+                    results.sort((a, b) => a.ticker.localeCompare(b.ticker));
+                    break;
+            }
+        }
+
+        function getRSIClass(rsi) {
+            if (rsi < 30) return 'text-success fw-bold';
+            if (rsi > 70) return 'text-danger fw-bold';
+            return 'text-primary';
+        }
+
+        function getSignalInfo(rsi) {
+            if (rsi < 30) return { text: 'BUY', class: 'bg-success' };
+            if (rsi < 40) return { text: 'WEAK BUY', class: 'bg-success' };
+            if (rsi > 70) return { text: 'SELL', class: 'bg-danger' };
+            if (rsi > 60) return { text: 'WEAK SELL', class: 'bg-warning' };
+            return { text: 'HOLD', class: 'bg-secondary' };
+        }
+
+        function formatVolume(volume) {
+            if (volume >= 1000000000) return (volume / 1000000000).toFixed(1) + 'B';
+            if (volume >= 1000000) return (volume / 1000000).toFixed(1) + 'M';
+            if (volume >= 1000) return (volume / 1000).toFixed(1) + 'K';
+            return volume.toLocaleString();
+        }
+
+        function setRSIFilter(min, max) {
+            document.getElementById('rsiMin').value = min;
+            document.getElementById('rsiMax').value = max;
+        }
+
+        function setPriceFilter(min, max) {
+            document.getElementById('priceMin').value = min;
+            document.getElementById('priceMax').value = max;
+        }
+
+        function setVolumeFilter(min) {
+            document.getElementById('volumeMin').value = min;
+        }
+
+        function resetFilters() {
+            document.getElementById('rsiMin').value = '';
+            document.getElementById('rsiMax').value = '';
+            document.getElementById('priceMin').value = '';
+            document.getElementById('priceMax').value = '';
+            document.getElementById('volumeMin').value = '';
+            document.getElementById('periodSelect').value = '6mo';
+            document.getElementById('sortBy').value = 'rsi';
+        }
+
+        function applyPreset(preset) {
+            resetFilters();
+            
+            switch(preset) {
+                case 'oversold':
+                    setRSIFilter(0, 30);
+                    break;
+                case 'overbought':
+                    setRSIFilter(70, 100);
+                    break;
+                case 'high_volume':
+                    setVolumeFilter(1000000);
+                    break;
+                case 'low_price':
+                    setPriceFilter(0, 50);
+                    break;
+                case 'normal_rsi':
+                    setRSIFilter(30, 70);
+                    break;
+                case 'all':
+                    // No filters applied
+                    break;
+            }
+            
+            applyFilters();
+        }
+
+        function exportResults() {
+            if (currentResults.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const csvContent = [
+                ['Ticker', 'Name', 'RSI', 'Price', 'Volume', 'Date'].join(','),
+                ...currentResults.map(etf => [
+                    etf.ticker,
+                    `"${etf.name || etf.ticker}"`,
+                    etf.rsi.toFixed(2),
+                    etf.price.toFixed(2),
+                    etf.volume,
+                    etf.date
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `etf_screener_results_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Event listeners
+        document.getElementById('sortBy').addEventListener('change', () => {
+            if (currentResults.length > 0) {
+                updateResults(currentResults);
+            }
+        });
+    </script>
+</body>
+</html>

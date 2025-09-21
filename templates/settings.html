@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | ETF Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .settings-card { 
+            border-left: 4px solid #007bff; 
+            transition: transform 0.2s;
+        }
+        .settings-card:hover { transform: translateY(-2px); }
+        .save-indicator { display: none; }
+        .save-indicator.show { display: inline-block; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <span>← Back to Dashboard</span>
+            </a>
+            <h4 class="text-white mb-0">⚙️ Settings</h4>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Dashboard Preferences -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card settings-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Dashboard Preferences</h5>
+                        <span class="save-indicator text-success" id="dashboardSaved">✓ Saved</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Default Time Period</label>
+                            <select class="form-select" id="defaultPeriod">
+                                <option value="1mo">1 Month</option>
+                                <option value="3mo">3 Months</option>
+                                <option value="6mo" selected>6 Months</option>
+                                <option value="1y">1 Year</option>
+                                <option value="2y">2 Years</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Default RSI Threshold</label>
+                            <input type="number" class="form-control" id="defaultThreshold" value="30" min="1" max="100">
+                            <div class="form-text">RSI level below which ETFs are considered oversold</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">ETFs per Dashboard Page</label>
+                            <select class="form-select" id="etfsPerPage">
+                                <option value="10">10 ETFs</option>
+                                <option value="20" selected>20 ETFs</option>
+                                <option value="50">50 ETFs</option>
+                                <option value="100">100 ETFs</option>
+                            </select>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                            <label class="form-check-label" for="autoRefresh">
+                                Auto-refresh dashboard every 5 minutes
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="soundAlerts">
+                            <label class="form-check-label" for="soundAlerts">
+                                Enable sound alerts for new oversold ETFs
+                            </label>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveDashboardSettings()">Save Dashboard Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technical Analysis Settings -->
+            <div class="col-md-6">
+                <div class="card settings-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Technical Analysis</h5>
+                        <span class="save-indicator text-success" id="technicalSaved">✓ Saved</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">RSI Period</label>
+                            <input type="number" class="form-control" id="rsiPeriod" value="14" min="5" max="50">
+                            <div class="form-text">Number of periods for RSI calculation</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Oversold Level</label>
+                            <input type="number" class="form-control" id="oversoldLevel" value="30" min="1" max="50">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Overbought Level</label>
+                            <input type="number" class="form-control" id="overboughtLevel" value="70" min="50" max="99">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Moving Average Periods</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label">SMA Short</label>
+                                    <input type="number" class="form-control" id="smaShort" value="20" min="5" max="50">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">SMA Long</label>
+                                    <input type="number" class="form-control" id="smaLong" value="50" min="20" max="200">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">MACD Settings</label>
+                            <div class="row">
+                                <div class="col-4">
+                                    <label class="form-label">Fast</label>
+                                    <input type="number" class="form-control" id="macdFast" value="12" min="5" max="50">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">Slow</label>
+                                    <input type="number" class="form-control" id="macdSlow" value="26" min="15" max="100">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">Signal</label>
+                                    <input type="number" class="form-control" id="macdSignal" value="9" min="5" max="30">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveTechnicalSettings()">Save Technical Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data & Performance Settings -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card settings-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Data & Performance</h5>
+                        <span class="save-indicator text-success" id="dataSaved">✓ Saved</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Data Refresh Frequency</label>
+                            <select class="form-select" id="refreshFrequency">
+                                <option value="manual">Manual only</option>
+                                <option value="5">Every 5 minutes</option>
+                                <option value="15" selected>Every 15 minutes</option>
+                                <option value="30">Every 30 minutes</option>
+                                <option value="60">Every hour</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Cache Duration</label>
+                            <select class="form-select" id="cacheDuration">
+                                <option value="300">5 minutes</option>
+                                <option value="900" selected>15 minutes</option>
+                                <option value="1800">30 minutes</option>
+                                <option value="3600">1 hour</option>
+                            </select>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="preloadData" checked>
+                            <label class="form-check-label" for="preloadData">
+                                Preload ETF data for faster performance
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="compressionEnabled" checked>
+                            <label class="form-check-label" for="compressionEnabled">
+                                Enable data compression
+                            </label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Maximum ETFs to Process</label>
+                            <select class="form-select" id="maxETFs">
+                                <option value="50">50 ETFs</option>
+                                <option value="100" selected>100 ETFs</option>
+                                <option value="200">200 ETFs</option>
+                                <option value="500">500 ETFs</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveDataSettings()">Save Data Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart & Display Settings -->
+            <div class="col-md-6">
+                <div class="card settings-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Charts & Display</h5>
+                        <span class="save-indicator text-success" id="chartSaved">✓ Saved</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Chart Theme</label>
+                            <select class="form-select" id="chartTheme">
+                                <option value="quartz" selected>Quartz (Light)</option>
+                                <option value="dark">Dark</option>
+                                <option value="fivethirtyeight">FiveThirtyEight</option>
+                                <option value="ggplot2">GGPlot2</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Default Chart Type</label>
+                            <select class="form-select" id="defaultChartType">
+                                <option value="line" selected>Line Chart</option>
+                                <option value="candlestick">Candlestick</option>
+                                <option value="area">Area Chart</option>
+                            </select>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="showVolume" checked>
+                            <label class="form-check-label" for="showVolume">
+                                Show volume charts by default
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="showMovingAverages" checked>
+                            <label class="form-check-label" for="showMovingAverages">
+                                Show moving averages on charts
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="animatedCharts">
+                            <label class="form-check-label" for="animatedCharts">
+                                Enable chart animations
+                            </label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Chart Height</label>
+                            <select class="form-select" id="chartHeight">
+                                <option value="300">Small (300px)</option>
+                                <option value="400" selected>Medium (400px)</option>
+                                <option value="500">Large (500px)</option>
+                                <option value="600">Extra Large (600px)</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveChartSettings()">Save Chart Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Settings -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card settings-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Notifications & Alerts</h5>
+                        <span class="save-indicator text-success" id="notificationSaved">✓ Saved</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="browserNotifications">
+                            <label class="form-check-label" for="browserNotifications">
+                                Enable browser notifications
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="oversoldAlerts" checked>
+                            <label class="form-check-label" for="oversoldAlerts">
+                                Alert when new ETFs become oversold
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="overboughtAlerts">
+                            <label class="form-check-label" for="overboughtAlerts">
+                                Alert when ETFs become overbought
+                            </label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Alert Frequency</label>
+                            <select class="form-select" id="alertFrequency">
+                                <option value="immediate">Immediate</option>
+                                <option value="5" selected>Every 5 minutes</option>
+                                <option value="15">Every 15 minutes</option>
+                                <option value="60">Hourly</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveNotificationSettings()">Save Notification Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import/Export Settings -->
+            <div class="col-md-6">
+                <div class="card settings-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Import/Export</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Export Settings</label>
+                            <button class="btn btn-outline-primary w-100 mb-2" onclick="exportSettings()">
+                                📁 Export All Settings
+                            </button>
+                            <div class="form-text">Download your current settings as a JSON file</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Import Settings</label>
+                            <input type="file" class="form-control" id="importFile" accept=".json">
+                            <button class="btn btn-outline-success w-100 mt-2" onclick="importSettings()">
+                                📂 Import Settings
+                            </button>
+                            <div class="form-text">Import settings from a previously exported JSON file</div>
+                        </div>
+
+                        <hr>
+
+                        <div class="mb-3">
+                            <label class="form-label">Reset to Defaults</label>
+                            <button class="btn btn-outline-danger w-100" onclick="resetToDefaults()">
+                                🔄 Reset All Settings
+                            </button>
+                            <div class="form-text">This will reset all settings to their default values</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Information -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">System Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Application Version:</strong><br>
+                                <span class="text-muted">v1.0.0</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Database Status:</strong><br>
+                                <span class="badge bg-success" id="dbStatus">Connected</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Total ETFs:</strong><br>
+                                <span class="text-muted" id="totalETFs">Loading...</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Last Data Update:</strong><br>
+                                <span class="text-muted" id="lastUpdate">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize settings on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
+            loadSystemInfo();
+            requestNotificationPermission();
+        });
+
+        function loadSettings() {
+            // Load settings from localStorage
+            const settings = JSON.parse(localStorage.getItem('etfDashboardSettings') || '{}');
+            
+            // Dashboard settings
+            if (settings.defaultPeriod) document.getElementById('defaultPeriod').value = settings.defaultPeriod;
+            if (settings.defaultThreshold) document.getElementById('defaultThreshold').value = settings.defaultThreshold;
+            if (settings.etfsPerPage) document.getElementById('etfsPerPage').value = settings.etfsPerPage;
+            if (settings.autoRefresh !== undefined) document.getElementById('autoRefresh').checked = settings.autoRefresh;
+            if (settings.soundAlerts !== undefined) document.getElementById('soundAlerts').checked = settings.soundAlerts;
+            
+            // Technical settings
+            if (settings.rsiPeriod) document.getElementById('rsiPeriod').value = settings.rsiPeriod;
+            if (settings.oversoldLevel) document.getElementById('oversoldLevel').value = settings.oversoldLevel;
+            if (settings.overboughtLevel) document.getElementById('overboughtLevel').value = settings.overboughtLevel;
+            if (settings.smaShort) document.getElementById('smaShort').value = settings.smaShort;
+            if (settings.smaLong) document.getElementById('smaLong').value = settings.smaLong;
+            if (settings.macdFast) document.getElementById('macdFast').value = settings.macdFast;
+            if (settings.macdSlow) document.getElementById('macdSlow').value = settings.macdSlow;
+            if (settings.macdSignal) document.getElementById('macdSignal').value = settings.macdSignal;
+            
+            // Data settings
+            if (settings.refreshFrequency) document.getElementById('refreshFrequency').value = settings.refreshFrequency;
+            if (settings.cacheDuration) document.getElementById('cacheDuration').value = settings.cacheDuration;
+            if (settings.preloadData !== undefined) document.getElementById('preloadData').checked = settings.preloadData;
+            if (settings.compressionEnabled !== undefined) document.getElementById('compressionEnabled').checked = settings.compressionEnabled;
+            if (settings.maxETFs) document.getElementById('maxETFs').value = settings.maxETFs;
+            
+            // Chart settings
+            if (settings.chartTheme) document.getElementById('chartTheme').value = settings.chartTheme;
+            if (settings.defaultChartType) document.getElementById('defaultChartType').value = settings.defaultChartType;
+            if (settings.showVolume !== undefined) document.getElementById('showVolume').checked = settings.showVolume;
+            if (settings.showMovingAverages !== undefined) document.getElementById('showMovingAverages').checked = settings.showMovingAverages;
+            if (settings.animatedCharts !== undefined) document.getElementById('animatedCharts').checked = settings.animatedCharts;
+            if (settings.chartHeight) document.getElementById('chartHeight').value = settings.chartHeight;
+            
+            // Notification settings
+            if (settings.browserNotifications !== undefined) document.getElementById('browserNotifications').checked = settings.browserNotifications;
+            if (settings.oversoldAlerts !== undefined) document.getElementById('oversoldAlerts').checked = settings.oversoldAlerts;
+            if (settings.overboughtAlerts !== undefined) document.getElementById('overboughtAlerts').checked = settings.overboughtAlerts;
+            if (settings.alertFrequency) document.getElementById('alertFrequency').value = settings.alertFrequency;
+        }
+
+        function saveSettings(category) {
+            const settings = JSON.parse(localStorage.getItem('etfDashboardSettings') || '{}');
+            
+            if (category === 'dashboard') {
+                settings.defaultPeriod = document.getElementById('defaultPeriod').value;
+                settings.defaultThreshold = document.getElementById('defaultThreshold').value;
+                settings.etfsPerPage = document.getElementById('etfsPerPage').value;
+                settings.autoRefresh = document.getElementById('autoRefresh').checked;
+                settings.soundAlerts = document.getElementById('soundAlerts').checked;
+                showSaveIndicator('dashboardSaved');
+            } else if (category === 'technical') {
+                settings.rsiPeriod = document.getElementById('rsiPeriod').value;
+                settings.oversoldLevel = document.getElementById('oversoldLevel').value;
+                settings.overboughtLevel = document.getElementById('overboughtLevel').value;
+                settings.smaShort = document.getElementById('smaShort').value;
+                settings.smaLong = document.getElementById('smaLong').value;
+                settings.macdFast = document.getElementById('macdFast').value;
+                settings.macdSlow = document.getElementById('macdSlow').value;
+                settings.macdSignal = document.getElementById('macdSignal').value;
+                showSaveIndicator('technicalSaved');
+            } else if (category === 'data') {
+                settings.refreshFrequency = document.getElementById('refreshFrequency').value;
+                settings.cacheDuration = document.getElementById('cacheDuration').value;
+                settings.preloadData = document.getElementById('preloadData').checked;
+                settings.compressionEnabled = document.getElementById('compressionEnabled').checked;
+                settings.maxETFs = document.getElementById('maxETFs').value;
+                showSaveIndicator('dataSaved');
+            } else if (category === 'chart') {
+                settings.chartTheme = document.getElementById('chartTheme').value;
+                settings.defaultChartType = document.getElementById('defaultChartType').value;
+                settings.showVolume = document.getElementById('showVolume').checked;
+                settings.showMovingAverages = document.getElementById('showMovingAverages').checked;
+                settings.animatedCharts = document.getElementById('animatedCharts').checked;
+                settings.chartHeight = document.getElementById('chartHeight').value;
+                showSaveIndicator('chartSaved');
+            } else if (category === 'notification') {
+                settings.browserNotifications = document.getElementById('browserNotifications').checked;
+                settings.oversoldAlerts = document.getElementById('oversoldAlerts').checked;
+                settings.overboughtAlerts = document.getElementById('overboughtAlerts').checked;
+                settings.alertFrequency = document.getElementById('alertFrequency').value;
+                showSaveIndicator('notificationSaved');
+            }
+            
+            localStorage.setItem('etfDashboardSettings', JSON.stringify(settings));
+        }
+
+        function showSaveIndicator(elementId) {
+            const indicator = document.getElementById(elementId);
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+        }
+
+        function saveDashboardSettings() { saveSettings('dashboard'); }
+        function saveTechnicalSettings() { saveSettings('technical'); }
+        function saveDataSettings() { saveSettings('data'); }
+        function saveChartSettings() { saveSettings('chart'); }
+        function saveNotificationSettings() { saveSettings('notification'); }
+
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                document.getElementById('dbStatus').textContent = data.database === 'connected' ? 'Connected' : 'Disconnected';
+                document.getElementById('dbStatus').className = data.database === 'connected' ? 'badge bg-success' : 'badge bg-danger';
+                document.getElementById('totalETFs').textContent = data.etf_count || 'Unknown';
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+            } catch (error) {
+                console.error('Error loading system info:', error);
+                document.getElementById('dbStatus').textContent = 'Error';
+                document.getElementById('dbStatus').className = 'badge bg-danger';
+            }
+        }
+
+        function exportSettings() {
+            const settings = JSON.parse(localStorage.getItem('etfDashboardSettings') || '{}');
+            const dataStr = JSON.stringify(settings, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `etf_dashboard_settings_${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+        }
+
+        function importSettings() {
+            const fileInput = document.getElementById('importFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file to import');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const settings = JSON.parse(e.target.result);
+                    localStorage.setItem('etfDashboardSettings', JSON.stringify(settings));
+                    loadSettings();
+                    alert('Settings imported successfully! The page will reload to apply changes.');
+                    location.reload();
+                } catch (error) {
+                    alert('Error importing settings: Invalid file format');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetToDefaults() {
+            if (confirm('Are you sure you want to reset all settings to their default values? This cannot be undone.')) {
+                localStorage.removeItem('etfDashboardSettings');
+                alert('Settings reset successfully! The page will reload.');
+                location.reload();
+            }
+        }
+
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                document.getElementById('browserNotifications').addEventListener('change', function() {
+                    if (this.checked) {
+                        Notification.requestPermission();
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

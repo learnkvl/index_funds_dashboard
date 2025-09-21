@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced ETF Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card-oversold { border-left: 5px solid #28a745; }
+        .card-overbought { border-left: 5px solid #dc3545; }
+        .card-normal { border-left: 5px solid #007bff; }
+        .metric-card { transition: transform 0.2s; }
+        .metric-card:hover { transform: translateY(-5px); }
+        .loading { display: none; }
+        .loading.show { display: block; }
+        
+        /* Enhanced signal styling */
+        .signal-strong-buy { background-color: #198754 !important; color: white; font-weight: bold; }
+        .signal-buy { background-color: #28a745 !important; color: white; }
+        .signal-hold { background-color: #6c757d !important; color: white; }
+        .signal-sell { background-color: #dc3545 !important; color: white; }
+        .signal-strong-sell { background-color: #b02a37 !important; color: white; font-weight: bold; }
+        .signal-error { background-color: #ffc107 !important; color: #000 !important; }
+        
+        /* Signal strength styling */
+        .strength-strong { border: 2px solid #198754; }
+        .strength-moderate { border: 2px solid #ffc107; }
+        .strength-weak { border: 2px solid #dc3545; }
+        
+        /* Technical indicator styling */
+        .table th { white-space: nowrap; font-size: 0.85em; }
+        .table td { font-size: 0.8em; }
+        .indicator-value { font-family: monospace; font-size: 0.85em; }
+        .refresh-status { margin-left: 10px; font-size: 0.8em; }
+        
+        /* Golden/Death Cross indicators */
+        .golden-cross { color: #28a745; font-weight: bold; }
+        .death-cross { color: #dc3545; font-weight: bold; }
+        .neutral-cross { color: #6c757d; }
+        
+        /* MACD styling */
+        .macd-bullish { color: #28a745; }
+        .macd-bearish { color: #dc3545; }
+        .macd-neutral { color: #6c757d; }
+        
+        /* Scrollable table container */
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+        }
+        
+        /* Sticky header */
+        .table thead th {
+            position: sticky;
+            top: 0;
+            background-color: #212529;
+            z-index: 10;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .table th, .table td {
+                font-size: 0.7em;
+                padding: 0.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">📈 Enhanced ETF Dashboard</span>
+            <div class="d-flex">
+                <select class="form-select me-2" id="periodSelect">
+                    <option value="1mo">1 Month</option>
+                    <option value="3mo">3 Months</option>
+                    <option value="6mo" selected>6 Months</option>
+                    <option value="1y">1 Year</option>
+                    <option value="2y">2 Years</option>
+                </select>
+                <input type="number" class="form-control me-2" id="thresholdInput" 
+                       value="30" min="1" max="100" style="width: 100px;" placeholder="RSI Threshold">
+                <button class="btn btn-primary" onclick="refreshData()">Refresh</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Loading indicator -->
+        <div class="loading text-center" id="loadingIndicator">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading ETF data...</p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row mb-4" id="summaryCards">
+            <div class="col-md-2">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Total ETFs</h6>
+                        <h3 class="text-primary" id="totalEtfs">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Strong Buy</h6>
+                        <h3 class="text-success" id="strongBuyCount">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Buy Signals</h6>
+                        <h3 class="text-info" id="buyCount">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Golden Cross</h6>
+                        <h3 class="text-warning" id="goldenCrossCount">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">MACD Bullish</h6>
+                        <h3 class="text-success" id="macdBullishCount">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Last Updated</h6>
+                        <h6 class="text-muted" id="lastUpdated">-</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced ETFs Technical Indicators Table -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5>Enhanced ETF Analysis - All Technical Indicators</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="refreshAllIndicators()">
+                                Refresh Indicators
+                            </button>
+                            <span class="refresh-status" id="refreshStatus"></span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="table table-bordered table-hover table-sm">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th rowspan="2">Ticker</th>
+                                        <th colspan="4" class="text-center bg-primary">Trend Analysis</th>
+                                        <th colspan="4" class="text-center bg-success">Momentum</th>
+                                        <th colspan="3" class="text-center bg-warning text-dark">Strength</th>
+                                        <th colspan="3" class="text-center bg-info">Signal</th>
+                                        <th rowspan="2">Action</th>
+                                    </tr>
+                                    <tr>
+                                        <!-- Trend Analysis -->
+                                        <th>EMA 50</th>
+                                        <th>EMA 200</th>
+                                        <th>Cross</th>
+                                        <th>SuperTrend</th>
+                                        <!-- Momentum -->
+                                        <th>RSI</th>
+                                        <th>MACD</th>
+                                        <th>MACD Signal</th>
+                                        <th>MACD Status</th>
+                                        <!-- Strength -->
+                                        <th>ADX</th>
+                                        <th>Volume</th>
+                                        <th>Price</th>
+                                        <!-- Signal -->
+                                        <th>Signal</th>
+                                        <th>Strength</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allEtfsTable">
+                                    <tr>
+                                        <td colspan="16" class="text-center text-muted">
+                                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                            Loading enhanced technical indicators...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chart -->
+        
+
+        <!-- Signal Summary Tables -->
+        <div class="row mb-4">
+            <!-- Strong Buy Signals -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-success text-white">
+                        <h6>Strong Buy Signals</h6>
+                        <span class="badge bg-light text-dark" id="strongBuyBadge">0</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Signal</th>
+                                        <th>RSI</th>
+                                        <th>Cross</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="strongBuyTable">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No strong buy signals</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Golden Cross ETFs -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-warning text-dark">
+                        <h6>Golden Cross ETFs (EMA 50 > EMA 200)</h6>
+                        <span class="badge bg-dark text-light" id="goldenCrossBadge">0</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>EMA Gap %</th>
+                                        <th>RSI</th>
+                                        <th>MACD</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="goldenCrossTable">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No golden cross ETFs</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick ETF Access -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Quick ETF Access</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="etfButtons">
+                            <!-- ETF buttons will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentData = null;
+        let indicatorsData = null;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            populateETFButtons();
+            refreshData();
+            loadAllEtfsIndicators(); // Load indicators immediately
+        });
+
+        function populateETFButtons() {
+            const etfs = {{ etfs | tojson }};
+            const container = document.getElementById('etfButtons');
+            
+            etfs.forEach(ticker => {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'col-md-2 col-sm-3 col-6 mb-2';
+                
+                const button = document.createElement('button');
+                button.className = 'btn btn-outline-primary w-100';
+                button.textContent = ticker;
+                button.onclick = () => window.open(`/etf/${ticker}`, '_blank');
+                
+                colDiv.appendChild(button);
+                container.appendChild(colDiv);
+            });
+        }
+
+        function showLoading(show = true) {
+            const loading = document.getElementById('loadingIndicator');
+            const summaryCards = document.getElementById('summaryCards');
+            
+            if (show) {
+                loading.classList.add('show');
+                summaryCards.style.opacity = '0.5';
+            } else {
+                loading.classList.remove('show');
+                summaryCards.style.opacity = '1';
+            }
+        }
+
+        async function refreshData() {
+            showLoading(true);
+            
+            const period = document.getElementById('periodSelect').value;
+            const threshold = document.getElementById('thresholdInput').value;
+            
+            try {
+                const response = await fetch(`/api/overview?period=${period}&threshold=${threshold}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error loading data: ' + data.error);
+                    return;
+                }
+                
+                currentData = data;
+                updateDashboard(data);
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                alert('Error loading data. Please try again.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Enhanced: Load all ETFs indicators and populate table with new columns
+        async function loadAllEtfsIndicators() {
+            const refreshStatus = document.getElementById('refreshStatus');
+            refreshStatus.innerHTML = '<span class="text-info">Loading...</span>';
+            
+            try {
+                const response = await fetch('/api/etfs/signals');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const etfList = await response.json();
+                indicatorsData = etfList;
+                
+                const tbody = document.getElementById('allEtfsTable');
+                tbody.innerHTML = '';
+                
+                if (!etfList || etfList.length === 0) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = '<td colspan="16" class="text-center text-muted">No ETF data found</td>';
+                    tbody.appendChild(row);
+                    refreshStatus.innerHTML = '<span class="text-warning">No data</span>';
+                    return;
+                }
+                
+                // Process and display enhanced indicators
+                etfList.forEach(etf => {
+                    const row = document.createElement('tr');
+                    row.className = `strength-${etf.signal_strength ? etf.signal_strength.toLowerCase() : 'weak'}`;
+                    
+                    // Helper function to format indicator value
+                    const formatIndicator = (value, decimals = 2) => {
+                        if (value === null || value === undefined) return '-';
+                        if (typeof value === 'number') return value.toFixed(decimals);
+                        return value;
+                    };
+                    
+                    // Determine trend analysis
+                    const ema50 = etf.ema_50;
+                    const ema200 = etf.ema_200;
+                    let crossStatus = '-';
+                    let crossClass = 'neutral-cross';
+                    
+                    if (ema50 && ema200) {
+                        if (ema50 > ema200) {
+                            crossStatus = 'Golden';
+                            crossClass = 'golden-cross';
+                        } else {
+                            crossStatus = 'Death';
+                            crossClass = 'death-cross';
+                        }
+                    }
+                    
+                    // Determine MACD status
+                    const macd = etf.macd;
+                    const macdSignal = etf.macd_signal;
+                    let macdStatus = '-';
+                    let macdClass = 'macd-neutral';
+                    
+                    if (macd && macdSignal) {
+                        if (macd > macdSignal) {
+                            macdStatus = 'Bullish';
+                            macdClass = 'macd-bullish';
+                        } else {
+                            macdStatus = 'Bearish';
+                            macdClass = 'macd-bearish';
+                        }
+                    }
+                    
+                    // Format volume
+                    const volume = etf.volume;
+                    const formattedVolume = volume ? (volume > 1000000 ? (volume/1000000).toFixed(1) + 'M' : (volume/1000).toFixed(0) + 'K') : '-';
+                    
+                    row.innerHTML = `
+                        <td><strong>${etf.ticker}</strong></td>
+                        <!-- Trend Analysis -->
+                        <td class="indicator-value">${formatIndicator(ema50)}</td>
+                        <td class="indicator-value">${formatIndicator(ema200)}</td>
+                        <td class="indicator-value ${crossClass}">${crossStatus}</td>
+                        <td class="indicator-value">${formatIndicator(etf.supertrend)}</td>
+                        <!-- Momentum -->
+                        <td class="indicator-value">${formatIndicator(etf.rsi)}</td>
+                        <td class="indicator-value">${formatIndicator(etf.macd, 3)}</td>
+                        <td class="indicator-value">${formatIndicator(etf.macd_signal, 3)}</td>
+                        <td class="indicator-value ${macdClass}">${macdStatus}</td>
+                        <!-- Strength -->
+                        <td class="indicator-value">${formatIndicator(etf.adx)}</td>
+                        <td class="indicator-value">${formattedVolume}</td>
+                        <td class="indicator-value">$${formatIndicator(etf.close_price)}</td>
+                        <!-- Signal -->
+                        <td><span class="badge ${getSignalClass(etf.signal)}">${etf.signal || 'HOLD'}</span></td>
+                        <td><small class="badge bg-secondary">${etf.signal_strength || 'WEAK'}</small></td>
+                        <td class="small text-muted">${etf.date || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="window.open('/etf/${etf.ticker}', '_blank')">
+                                View
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                // Update summary statistics
+                updateEnhancedSummaryStats(etfList);
+                
+                refreshStatus.innerHTML = `<span class="text-success">Updated: ${new Date().toLocaleTimeString()}</span>`;
+                
+            } catch (error) {
+                console.error('Error loading ETF indicators:', error);
+                const tbody = document.getElementById('allEtfsTable');
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="16" class="text-center text-danger">
+                            Error loading data: ${error.message}
+                            <br>
+                            <button class="btn btn-sm btn-primary mt-2" onclick="loadAllEtfsIndicators()">Retry</button>
+                        </td>
+                    </tr>
+                `;
+                refreshStatus.innerHTML = '<span class="text-danger">Error</span>';
+            }
+        }
+
+        function updateEnhancedSummaryStats(etfList) {
+            let strongBuyCount = 0;
+            let buyCount = 0;
+            let goldenCrossCount = 0;
+            let macdBullishCount = 0;
+            
+            const strongBuyETFs = [];
+            const goldenCrossETFs = [];
+            
+            etfList.forEach(etf => {
+                // Count signals
+                if (etf.signal === 'STRONG_BUY') strongBuyCount++;
+                if (etf.signal === 'BUY' || etf.signal === 'STRONG_BUY') buyCount++;
+                
+                // Count golden crosses
+                if (etf.ema_50 && etf.ema_200 && etf.ema_50 > etf.ema_200) {
+                    goldenCrossCount++;
+                    goldenCrossETFs.push(etf);
+                }
+                
+                // Count MACD bullish
+                if (etf.macd && etf.macd_signal && etf.macd > etf.macd_signal) {
+                    macdBullishCount++;
+                }
+                
+                // Collect strong buy ETFs
+                if (etf.signal === 'STRONG_BUY') {
+                    strongBuyETFs.push(etf);
+                }
+            });
+            
+            // Update summary cards
+            document.getElementById('totalEtfs').textContent = etfList.length;
+            document.getElementById('strongBuyCount').textContent = strongBuyCount;
+            document.getElementById('buyCount').textContent = buyCount;
+            document.getElementById('goldenCrossCount').textContent = goldenCrossCount;
+            document.getElementById('macdBullishCount').textContent = macdBullishCount;
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+            
+            // Update badges
+            document.getElementById('strongBuyBadge').textContent = strongBuyCount;
+            document.getElementById('goldenCrossBadge').textContent = goldenCrossCount;
+            
+            // Update summary tables
+            updateStrongBuyTable(strongBuyETFs);
+            updateGoldenCrossTable(goldenCrossETFs);
+        }
+
+        function updateStrongBuyTable(strongBuyETFs) {
+            const tbody = document.getElementById('strongBuyTable');
+            tbody.innerHTML = '';
+            
+            if (strongBuyETFs.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="5" class="text-center text-muted">No strong buy signals</td>';
+                tbody.appendChild(row);
+                return;
+            }
+            
+            strongBuyETFs.forEach(etf => {
+                const row = document.createElement('tr');
+                const crossStatus = (etf.ema_50 && etf.ema_200 && etf.ema_50 > etf.ema_200) ? 'Golden' : 'Death';
+                
+                row.innerHTML = `
+                    <td><strong>${etf.ticker}</strong></td>
+                    <td><span class="badge ${getSignalClass(etf.signal)}">${etf.signal}</span></td>
+                    <td>${etf.rsi ? etf.rsi.toFixed(1) : '-'}</td>
+                    <td class="${crossStatus === 'Golden' ? 'golden-cross' : 'death-cross'}">${crossStatus}</td>
+                    <td>
+                        <button class="btn btn-sm btn-success" onclick="window.open('/etf/${etf.ticker}', '_blank')">
+                            View
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateGoldenCrossTable(goldenCrossETFs) {
+            const tbody = document.getElementById('goldenCrossTable');
+            tbody.innerHTML = '';
+            
+            if (goldenCrossETFs.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="5" class="text-center text-muted">No golden cross ETFs</td>';
+                tbody.appendChild(row);
+                return;
+            }
+            
+            goldenCrossETFs.forEach(etf => {
+                const row = document.createElement('tr');
+                const emaGap = ((etf.ema_50 - etf.ema_200) / etf.ema_200 * 100).toFixed(2);
+                const macdStatus = (etf.macd && etf.macd_signal && etf.macd > etf.macd_signal) ? 'Bull' : 'Bear';
+                
+                row.innerHTML = `
+                    <td><strong>${etf.ticker}</strong></td>
+                    <td class="golden-cross">+${emaGap}%</td>
+                    <td>${etf.rsi ? etf.rsi.toFixed(1) : '-'}</td>
+                    <td class="${macdStatus === 'Bull' ? 'macd-bullish' : 'macd-bearish'}">${macdStatus}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="window.open('/etf/${etf.ticker}', '_blank')">
+                            View
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Helper to get signal badge class
+        function getSignalClass(signal) {
+            switch(signal) {
+                case 'STRONG_BUY': return 'signal-strong-buy';
+                case 'BUY': return 'signal-buy';
+                case 'SELL': return 'signal-sell';
+                case 'STRONG_SELL': return 'signal-strong-sell';
+                case 'ERROR': return 'signal-error';
+                case 'HOLD':
+                default: return 'signal-hold';
+            }
+        }
+
+        // Refresh indicators manually
+        async function refreshAllIndicators() {
+            await loadAllEtfsIndicators();
+        }
+
+        function updateDashboard(data) {
+            // Render chart if available
+            if (data.chart) {
+                vegaEmbed('#overviewChart', JSON.parse(data.chart), {
+                    theme: 'quartz',
+                    actions: false,
+                    width: 'container'
+                });
+            }
+        }
+
+        // Event listeners
+        document.getElementById('periodSelect').addEventListener('change', () => {
+            refreshData();
+            loadAllEtfsIndicators();
+        });
+        
+        document.getElementById('thresholdInput').addEventListener('change', refreshData);
+
+        // Auto-refresh indicators every 5 minutes
+        setInterval(loadAllEtfsIndicators, 5 * 60 * 1000);
+    </script>
+</body>
+</html>

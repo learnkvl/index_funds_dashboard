@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ ticker }} - Enhanced ETF Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #007bff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --dark: #343a40;
+            --light: #f8f9fa;
+            --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --card-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: var(--dark);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .top-navigation {
+            background: var(--dark);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .nav-back {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: var(--transition);
+        }
+
+        .nav-back:hover {
+            color: #ccc;
+        }
+
+        .etf-header {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border-radius: var(--card-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .metric-card {
+            transition: var(--transition);
+            border-radius: var(--card-radius);
+            border: none;
+            box-shadow: var(--card-shadow);
+            height: 100%;
+            background: white;
+            overflow: hidden;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+        }
+
+        .loading {
+            display: none;
+            padding: 3rem 0;
+        }
+
+        .loading.show {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .analysis-section {
+            background: white;
+            border-radius: var(--card-radius);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
+            border-left: 5px solid var(--primary);
+        }
+
+        .analysis-section.overbought {
+            border-left-color: var(--danger);
+            background: linear-gradient(to right, rgba(220, 53, 69, 0.05), white);
+        }
+
+        .analysis-section.oversold {
+            border-left-color: var(--success);
+            background: linear-gradient(to right, rgba(40, 167, 69, 0.05), white);
+        }
+
+        .analysis-section.bullish {
+            border-left-color: var(--success);
+            background: linear-gradient(to right, rgba(40, 167, 69, 0.05), white);
+        }
+
+        .analysis-section.bearish {
+            border-left-color: var(--danger);
+            background: linear-gradient(to right, rgba(220, 53, 69, 0.05), white);
+        }
+
+        .analysis-section.neutral {
+            border-left-color: var(--info);
+            background: linear-gradient(to right, rgba(23, 162, 184, 0.05), white);
+        }
+
+        .analysis-section.warning {
+            border-left-color: var(--warning);
+            background: linear-gradient(to right, rgba(255, 193, 7, 0.05), white);
+        }
+
+        .condition-header {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        .condition-header.oversold {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success);
+        }
+
+        .condition-header.bullish {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success);
+        }
+
+        .condition-header.neutral {
+            background: rgba(23, 162, 184, 0.1);
+            color: var(--info);
+        }
+
+        .condition-header.warning {
+            background: rgba(255, 193, 7, 0.1);
+            color: #856404;
+        }
+
+        .signal-header {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .signal-header.buy {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success);
+        }
+
+        .signal-header.hold {
+            background: rgba(23, 162, 184, 0.1);
+            color: var(--info);
+        }
+
+        .signal-header.warning {
+            background: rgba(255, 193, 7, 0.1);
+            color: #856404;
+        }
+
+        .analysis-list {
+            list-style: none;
+            padding: 0;
+            margin: 1.5rem 0;
+        }
+
+        .analysis-list li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+        }
+
+        .analysis-list li:last-child {
+            border-bottom: none;
+        }
+
+        .analysis-list strong {
+            min-width: 180px;
+            display: inline-block;
+            color: var(--dark);
+            font-weight: 600;
+        }
+
+        .signal-list {
+            list-style: none;
+            padding: 0;
+            margin: 1rem 0;
+        }
+
+        .signal-list li {
+            padding: 0.75rem 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .description-text {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #495057;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .analysis-section {
+                padding: 1.5rem;
+            }
+            
+            .analysis-list strong {
+                min-width: 140px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top Navigation -->
+    <div class="top-navigation">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <a class="nav-back" href="/">
+                        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+                    </a>
+                </div>
+                <div class="col-md-6 text-md-end text-start mt-2 mt-md-0">
+                    <h4 class="text-white mb-0 me-3 d-inline" id="etfTitle">{{ ticker }}</h4>
+                    <select class="form-select d-inline-block" id="periodSelect" style="width: 150px;">
+                        <option value="1mo">1 Month</option>
+                        <option value="3mo">3 Months</option>
+                        <option value="6mo" selected>6 Months</option>
+                        <option value="1y">1 Year</option>
+                        <option value="2y">2 Years</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <!-- Loading indicator -->
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading {{ ticker }} comprehensive analysis...</p>
+        </div>
+
+        <!-- ETF Info Header -->
+        <div class="row mb-4" id="etfInfo" style="display: none;">
+            <div class="col-12">
+                <div class="etf-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h3 id="etfName">{{ ticker }}</h3>
+                            <p class="mb-2" id="etfDescription">Loading...</p>
+                        </div>
+                        <div class="col-md-4 text-md-end text-start">
+                            <span class="badge bg-light text-dark fs-6" id="etfAUM">AUM: Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics Row -->
+        <div class="row mb-4" id="metricsRow" style="display: none;">
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title"><i class="bi bi-currency-dollar me-2"></i>Current Price</h6>
+                        <h4 class="text-primary" id="currentPrice">-</h4>
+                        <small class="text-muted" id="priceDate">-</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title"><i class="bi bi-speedometer2 me-2"></i>Current RSI</h6>
+                        <h4 id="currentRSI">-</h4>
+                        <span class="badge" id="rsiBadge">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title"><i class="bi bi-bar-chart me-2"></i>Volume</h6>
+                        <h4 class="text-info" id="currentVolume">-</h4>
+                        <small class="text-muted">shares</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h6 class="card-title"><i class="bi bi-lightning-charge me-2"></i>Signal</h6>
+                        <h4 id="overallSignal">-</h4>
+                        <span class="badge" id="signalBadge">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Analysis Sections -->
+        <div id="technicalAnalysisContainer" style="display: none;">
+            
+            <!-- RSI Analysis Section -->
+            <div class="analysis-section" id="rsiAnalysisSection">
+                <div class="section-title">
+                    <i class="bi bi-speedometer2"></i>
+                    RSI Analysis
+                </div>
+                <div class="condition-header" id="rsiConditionHeader">
+                    Loading RSI Analysis...
+                </div>
+                <div class="description-text" id="rsiDescription">
+                    Analyzing RSI conditions...
+                </div>
+                <ul class="analysis-list" id="rsiAnalysisList">
+                    <li><strong>RSI Level:</strong> <span id="rsiLevelText">Loading...</span></li>
+                    <li><strong>Market Sentiment:</strong> <span id="rsiSentiment">Loading...</span></li>
+                    <li><strong>Risk Level:</strong> <span id="rsiRisk">Loading...</span></li>
+                </ul>
+                
+                <div class="section-title mt-4">
+                    <i class="bi bi-activity"></i>
+                    Trading Signals
+                </div>
+                <div class="signal-header" id="rsiSignalHeader">
+                    Loading Signal...
+                </div>
+                <ul class="signal-list" id="rsiSignalList">
+                    <!-- RSI signals will be populated here -->
+                </ul>
+            </div>
+
+            <!-- MACD Analysis Section -->
+            <div class="analysis-section" id="macdAnalysisSection">
+                <div class="section-title">
+                    <i class="bi bi-activity"></i>
+                    MACD Analysis
+                </div>
+                <div class="condition-header" id="macdConditionHeader">
+                    Loading MACD Analysis...
+                </div>
+                <div class="description-text" id="macdDescription">
+                    Analyzing MACD momentum...
+                </div>
+                <ul class="analysis-list" id="macdAnalysisList">
+                    <li><strong>MACD Line:</strong> <span id="macdValue">Loading...</span></li>
+                    <li><strong>Signal Line:</strong> <span id="macdSignalValue">Loading...</span></li>
+                    <li><strong>Market Sentiment:</strong> <span id="macdSentiment">Loading...</span></li>
+                    <li><strong>Risk Level:</strong> <span id="macdRisk">Loading...</span></li>
+                </ul>
+                
+                <div class="section-title mt-4">
+                    <i class="bi bi-activity"></i>
+                    Trading Signals
+                </div>
+                <div class="signal-header" id="macdSignalHeader">
+                    Loading Signal...
+                </div>
+                <ul class="signal-list" id="macdSignalList">
+                    <!-- MACD signals will be populated here -->
+                </ul>
+            </div>
+
+            <!-- Supertrend Analysis Section -->
+            <div class="analysis-section" id="supertrendAnalysisSection">
+                <div class="section-title">
+                    <i class="bi bi-lightning"></i>
+                    Supertrend Analysis
+                </div>
+                <div class="condition-header" id="supertrendConditionHeader">
+                    Loading Supertrend Analysis...
+                </div>
+                <div class="description-text" id="supertrendDescription">
+                    Analyzing trend direction...
+                </div>
+                <ul class="analysis-list" id="supertrendAnalysisList">
+                    <li><strong>Current Price:</strong> <span id="supertrendPrice">Loading...</span></li>
+                    <li><strong>Supertrend Value:</strong> <span id="supertrendValue">Loading...</span></li>
+                    <li><strong>Market Sentiment:</strong> <span id="supertrendSentiment">Loading...</span></li>
+                    <li><strong>Risk Level:</strong> <span id="supertrendRisk">Loading...</span></li>
+                </ul>
+                
+                <div class="section-title mt-4">
+                    <i class="bi bi-activity"></i>
+                    Trading Signals
+                </div>
+                <div class="signal-header" id="supertrendSignalHeader">
+                    Loading Signal...
+                </div>
+                <ul class="signal-list" id="supertrendSignalList">
+                    <!-- Supertrend signals will be populated here -->
+                </ul>
+            </div>
+
+            <!-- EMA Cross Analysis Section -->
+            <div class="analysis-section" id="emaAnalysisSection">
+                <div class="section-title">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    EMA 50/200 Cross Analysis
+                </div>
+                <div class="condition-header" id="emaConditionHeader">
+                    Loading EMA Analysis...
+                </div>
+                <div class="description-text" id="emaDescription">
+                    Analyzing long-term trend...
+                </div>
+                <ul class="analysis-list" id="emaAnalysisList">
+                    <li><strong>EMA 50:</strong> <span id="ema50Value">Loading...</span></li>
+                    <li><strong>EMA 200:</strong> <span id="ema200Value">Loading...</span></li>
+                    <li><strong>Market Sentiment:</strong> <span id="emaSentiment">Loading...</span></li>
+                    <li><strong>Risk Level:</strong> <span id="emaRisk">Loading...</span></li>
+                </ul>
+                
+                <div class="section-title mt-4">
+                    <i class="bi bi-activity"></i>
+                    Trading Signals
+                </div>
+                <div class="signal-header" id="emaSignalHeader">
+                    Loading Signal...
+                </div>
+                <ul class="signal-list" id="emaSignalList">
+                    <!-- EMA signals will be populated here -->
+                </ul>
+            </div>
+
+            <!-- ADX Analysis Section -->
+            <div class="analysis-section" id="adxAnalysisSection">
+                <div class="section-title">
+                    <i class="bi bi-bar-chart"></i>
+                    ADX Trend Strength Analysis
+                </div>
+                <div class="condition-header" id="adxConditionHeader">
+                    Loading ADX Analysis...
+                </div>
+                <div class="description-text" id="adxDescription">
+                    Analyzing trend strength...
+                </div>
+                <ul class="analysis-list" id="adxAnalysisList">
+                    <li><strong>ADX Value:</strong> <span id="adxValue">Loading...</span></li>
+                    <li><strong>Trend Strength:</strong> <span id="adxStrength">Loading...</span></li>
+                    <li><strong>Market Sentiment:</strong> <span id="adxSentiment">Loading...</span></li>
+                    <li><strong>Risk Level:</strong> <span id="adxRisk">Loading...</span></li>
+                </ul>
+                
+                <div class="section-title mt-4">
+                    <i class="bi bi-activity"></i>
+                    Trading Signals
+                </div>
+                <div class="signal-header" id="adxSignalHeader">
+                    Loading Signal...
+                </div>
+                <ul class="signal-list" id="adxSignalList">
+                    <!-- ADX signals will be populated here -->
+                </ul>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const ticker = "{{ ticker }}";
+        let currentData = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadETFData();
+        });
+
+        function showLoading(show = true) {
+            const loading = document.getElementById('loadingIndicator');
+            const etfInfo = document.getElementById('etfInfo');
+            const metricsRow = document.getElementById('metricsRow');
+            const analysisContainer = document.getElementById('technicalAnalysisContainer');
+            
+            if (show) {
+                loading.classList.add('show');
+                etfInfo.style.display = 'none';
+                metricsRow.style.display = 'none';
+                analysisContainer.style.display = 'none';
+            } else {
+                loading.classList.remove('show');
+                etfInfo.style.display = 'block';
+                metricsRow.style.display = 'flex';
+                analysisContainer.style.display = 'block';
+            }
+        }
+
+        async function loadETFData() {
+            showLoading(true);
+            
+            const period = document.getElementById('periodSelect').value;
+            
+            try {
+                const response = await fetch(`/api/etf/${ticker}?period=${period}&include_signals=true`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error loading data: ' + data.error);
+                    return;
+                }
+                
+                currentData = data;
+                updatePage(data);
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                alert('Error loading data. Please try again.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updatePage(data) {
+            // Update ETF info
+            document.getElementById('etfName').textContent = data.etf_info.name;
+            document.getElementById('etfTitle').textContent = `${data.etf_info.ticker} - ${data.etf_info.name}`;
+            document.getElementById('etfAUM').textContent = `AUM: ${data.etf_info.aum}`;
+            
+            // Update metrics
+            updateMetrics(data.latest_data);
+            
+            // Update comprehensive analysis
+            updateRSIAnalysis(data.latest_data, data.technical_analysis);
+            updateMACDAnalysis(data.latest_data, data.technical_analysis);
+            updateSupertrendAnalysis(data.latest_data, data.technical_analysis);
+            updateEMAAnalysis(data.latest_data, data.technical_analysis);
+            updateADXAnalysis(data.latest_data, data.technical_analysis);
+        }
+
+        function updateMetrics(latestData) {
+            // Price
+            document.getElementById('currentPrice').textContent = `${latestData.price}`;
+            document.getElementById('priceDate').textContent = latestData.date;
+            
+            // RSI
+            const rsi = latestData.rsi;
+            document.getElementById('currentRSI').textContent = rsi.toFixed(2);
+            
+            const rsiBadge = document.getElementById('rsiBadge');
+            if (rsi < 30) {
+                rsiBadge.textContent = 'Oversold';
+                rsiBadge.className = 'badge bg-success';
+            } else if (rsi > 70) {
+                rsiBadge.textContent = 'Overbought';
+                rsiBadge.className = 'badge bg-danger';
+            } else {
+                rsiBadge.textContent = 'Normal';
+                rsiBadge.className = 'badge bg-secondary';
+            }
+            
+            // Volume
+            document.getElementById('currentVolume').textContent = formatNumber(latestData.volume);
+            
+            // Enhanced Multi-Factor Signal (use from API response)
+            const enhancedSignal = getEnhancedSignalFromData(currentData);
+            document.getElementById('overallSignal').textContent = enhancedSignal.signal;
+            const signalBadge = document.getElementById('signalBadge');
+            signalBadge.textContent = enhancedSignal.description;
+            signalBadge.className = `badge ${enhancedSignal.class}`;
+        }
+
+        function updateRSIAnalysis(latestData, analysis) {
+            const rsi = latestData.rsi;
+            const section = document.getElementById('rsiAnalysisSection');
+            
+            let condition, description, sentiment, risk, signalType, signalClass, signals;
+            
+            if (rsi < 30) {
+                condition = 'Oversold Condition';
+                description = `The RSI is currently at ${rsi.toFixed(2)}, indicating the ETF may be oversold. This could present a potential buying opportunity as the price may be due for a rebound.`;
+                sentiment = 'Bearish, but potential reversal';
+                risk = 'Moderate to High';
+                signalType = 'Buy Signal Active';
+                signalClass = 'oversold';
+                signals = [
+                    'RSI indicates oversold condition',
+                    'Wait for confirmation of trend reversal',
+                    'Consider dollar-cost averaging',
+                    'Set stop-loss at recent support levels'
+                ];
+            } else if (rsi > 70) {
+                condition = 'Overbought Condition';
+                description = `The RSI is currently at ${rsi.toFixed(2)}, indicating the ETF may be overbought. This suggests the price may be due for a pullback or consolidation.`;
+                sentiment = 'Bullish, but potential correction';
+                risk = 'High';
+                signalType = 'Sell Signal Active';
+                signalClass = 'overbought';
+                signals = [
+                    'RSI indicates overbought condition',
+                    'Consider taking profits',
+                    'Reduce position size',
+                    'Watch for bearish divergence'
+                ];
+            } else {
+                condition = 'Normal Trading Range';
+                description = `The RSI is currently at ${rsi.toFixed(2)}, indicating normal trading conditions. No immediate overbought or oversold signals are present.`;
+                sentiment = 'Neutral';
+                risk = 'Moderate';
+                signalType = 'Hold Signal';
+                signalClass = 'neutral';
+                signals = [
+                    'RSI in normal range',
+                    'Monitor for trend changes',
+                    'Wait for clearer signals',
+                    'Consider trend-following strategy'
+                ];
+            }
+            
+            section.className = `analysis-section ${signalClass}`;
+            document.getElementById('rsiConditionHeader').textContent = condition;
+            document.getElementById('rsiConditionHeader').className = `condition-header ${signalClass}`;
+            document.getElementById('rsiDescription').textContent = description;
+            document.getElementById('rsiLevelText').textContent = `${rsi.toFixed(2)} (${rsi < 30 ? 'Oversold' : rsi > 70 ? 'Overbought' : 'Normal'})`;
+            document.getElementById('rsiSentiment').textContent = sentiment;
+            document.getElementById('rsiRisk').textContent = risk;
+            
+            const signalHeader = document.getElementById('rsiSignalHeader');
+            signalHeader.textContent = signalType;
+            signalHeader.className = `signal-header ${signalClass === 'overbought' ? 'sell' : signalClass === 'oversold' ? 'buy' : 'hold'}`;
+            
+            const signalList = document.getElementById('rsiSignalList');
+            signalList.innerHTML = signals.map(signal => 
+                `<li><span class="text-${signalClass === 'overbought' ? 'danger' : signalClass === 'oversold' ? 'success' : 'info'}">${getSignalIcon(signalClass)}</span> ${signal}</li>`
+            ).join('');
+        }
+
+        function updateMACDAnalysis(latestData, analysis) {
+            const macd = latestData.macd;
+            const macdSignal = latestData.macd_signal;
+            const section = document.getElementById('macdAnalysisSection');
+            
+            if (!macd || !macdSignal) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            let condition, description, sentiment, risk, signalType, signalClass, signals;
+            
+            if (macd > macdSignal) {
+                condition = 'Bullish MACD Crossover';
+                description = `The MACD line (${macd.toFixed(4)}) is above the signal line (${macdSignal.toFixed(4)}), indicating bullish momentum. This suggests upward price movement is likely.`;
+                sentiment = 'Bullish momentum building';
+                risk = 'Low to Moderate';
+                signalType = 'Buy Signal Active';
+                signalClass = 'bullish';
+                signals = [
+                    'MACD crossed above signal line',
+                    'Momentum is building upward',
+                    'Consider entering long position',
+                    'Monitor for continued strength'
+                ];
+            } else {
+                condition = 'Bearish MACD Crossover';
+                description = `The MACD line (${macd.toFixed(4)}) is below the signal line (${macdSignal.toFixed(4)}), indicating bearish momentum. This suggests downward price pressure.`;
+                sentiment = 'Bearish momentum building';
+                risk = 'Moderate to High';
+                signalType = 'Sell Signal Active';
+                signalClass = 'bearish';
+                signals = [
+                    'MACD crossed below signal line',
+                    'Momentum is building downward',
+                    'Consider exiting long positions',
+                    'Watch for further weakness'
+                ];
+            }
+            
+            section.className = `analysis-section ${signalClass}`;
+            document.getElementById('macdConditionHeader').textContent = condition;
+            document.getElementById('macdConditionHeader').className = `condition-header ${signalClass}`;
+            document.getElementById('macdDescription').textContent = description;
+            document.getElementById('macdValue').textContent = macd.toFixed(4);
+            document.getElementById('macdSignalValue').textContent = macdSignal.toFixed(4);
+            document.getElementById('macdSentiment').textContent = sentiment;
+            document.getElementById('macdRisk').textContent = risk;
+            
+            const signalHeader = document.getElementById('macdSignalHeader');
+            signalHeader.textContent = signalType;
+            signalHeader.className = `signal-header ${signalClass === 'bullish' ? 'buy' : 'sell'}`;
+            
+            const signalList = document.getElementById('macdSignalList');
+            signalList.innerHTML = signals.map(signal => 
+                `<li><span class="text-${signalClass === 'bullish' ? 'success' : 'danger'}">${getSignalIcon(signalClass)}</span> ${signal}</li>`
+            ).join('');
+        }
+
+        function updateSupertrendAnalysis(latestData, analysis) {
+            const price = latestData.price;
+            const supertrend = latestData.supertrend;
+            const section = document.getElementById('supertrendAnalysisSection');
+            
+            if (!supertrend) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            let condition, description, sentiment, risk, signalType, signalClass, signals;
+            const distance = ((price - supertrend) / supertrend * 100);
+            
+            if (price > supertrend) {
+                condition = 'Bullish Supertrend';
+                description = `The current price ($${price.toFixed(2)}) is ${distance.toFixed(2)}% above the Supertrend line ($${supertrend.toFixed(2)}), confirming the bullish trend. The trend is likely to continue upward.`;
+                sentiment = 'Bullish trend confirmed';
+                risk = 'Low to Moderate';
+                signalType = 'Buy Signal Active';
+                signalClass = 'bullish';
+                signals = [
+                    'Price above Supertrend line',
+                    'Trend is bullish',
+                    'Use Supertrend as trailing stop',
+                    'Suitable for trend-following'
+                ];
+            } else {
+                condition = 'Bearish Supertrend';
+                description = `The current price ($${price.toFixed(2)}) is ${Math.abs(distance).toFixed(2)}% below the Supertrend line ($${supertrend.toFixed(2)}), confirming the bearish trend. The trend is likely to continue downward.`;
+                sentiment = 'Bearish trend confirmed';
+                risk = 'Moderate to High';
+                signalType = 'Sell Signal Active';
+                signalClass = 'bearish';
+                signals = [
+                    'Price below Supertrend line',
+                    'Trend is bearish',
+                    'Avoid long positions',
+                    'Consider short opportunities'
+                ];
+            }
+            
+            section.className = `analysis-section ${signalClass}`;
+            document.getElementById('supertrendConditionHeader').textContent = condition;
+            document.getElementById('supertrendConditionHeader').className = `condition-header ${signalClass}`;
+            document.getElementById('supertrendDescription').textContent = description;
+            document.getElementById('supertrendPrice').textContent = `$${price.toFixed(2)}`;
+            document.getElementById('supertrendValue').textContent = `$${supertrend.toFixed(2)}`;
+            document.getElementById('supertrendSentiment').textContent = sentiment;
+            document.getElementById('supertrendRisk').textContent = risk;
+            
+            const signalHeader = document.getElementById('supertrendSignalHeader');
+            signalHeader.textContent = signalType;
+            signalHeader.className = `signal-header ${signalClass === 'bullish' ? 'buy' : 'sell'}`;
+            
+            const signalList = document.getElementById('supertrendSignalList');
+            signalList.innerHTML = signals.map(signal => 
+                `<li><span class="text-${signalClass === 'bullish' ? 'success' : 'danger'}">${getSignalIcon(signalClass)}</span> ${signal}</li>`
+            ).join('');
+        }
+
+        function updateEMAAnalysis(latestData, analysis) {
+            const ema50 = latestData.ema_50;
+            const ema200 = latestData.ema_200;
+            const section = document.getElementById('emaAnalysisSection');
+            
+            if (!ema50 || !ema200) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            let condition, description, sentiment, risk, signalType, signalClass, signals;
+            const gap = ((ema50 - ema200) / ema200 * 100);
+            
+            if (ema50 > ema200) {
+                condition = 'Golden Cross Active';
+                description = `The 50-day EMA ($${ema50.toFixed(2)}) is above the 200-day EMA ($${ema200.toFixed(2)}) by ${gap.toFixed(2)}%, confirming a bullish long-term trend. This Golden Cross suggests continued upward momentum.`;
+                sentiment = 'Bullish long-term trend';
+                risk = 'Low to Moderate';
+                signalType = 'Buy Signal Active';
+                signalClass = 'bullish';
+                signals = [
+                    'Long-term bullish trend confirmed',
+                    'Suitable for trend-following strategies',
+                    'Consider increasing position size',
+                    'Use 200-day EMA as support level'
+                ];
+            } else {
+                condition = 'Death Cross Active';
+                description = `The 50-day EMA ($${ema50.toFixed(2)}) is below the 200-day EMA ($${ema200.toFixed(2)}) by ${Math.abs(gap).toFixed(2)}%, indicating a bearish long-term trend. This Death Cross suggests continued downward pressure.`;
+                sentiment = 'Bearish long-term trend';
+                risk = 'High';
+                signalType = 'Sell Signal Active';
+                signalClass = 'bearish';
+                signals = [
+                    'Long-term bearish trend confirmed',
+                    'Avoid new long positions',
+                    'Consider defensive positioning',
+                    'Use 200-day EMA as resistance level'
+                ];
+            }
+            
+            section.className = `analysis-section ${signalClass}`;
+            document.getElementById('emaConditionHeader').textContent = condition;
+            document.getElementById('emaConditionHeader').className = `condition-header ${signalClass}`;
+            document.getElementById('emaDescription').textContent = description;
+            document.getElementById('ema50Value').textContent = `$${ema50.toFixed(2)}`;
+            document.getElementById('ema200Value').textContent = `$${ema200.toFixed(2)}`;
+            document.getElementById('emaSentiment').textContent = sentiment;
+            document.getElementById('emaRisk').textContent = risk;
+            
+            const signalHeader = document.getElementById('emaSignalHeader');
+            signalHeader.textContent = signalType;
+            signalHeader.className = `signal-header ${signalClass === 'bullish' ? 'buy' : 'sell'}`;
+            
+            const signalList = document.getElementById('emaSignalList');
+            signalList.innerHTML = signals.map(signal => 
+                `<li><span class="text-${signalClass === 'bullish' ? 'success' : 'danger'}">${getSignalIcon(signalClass)}</span> ${signal}</li>`
+            ).join('');
+        }
+
+        function updateADXAnalysis(latestData, analysis) {
+            const adx = latestData.adx;
+            const section = document.getElementById('adxAnalysisSection');
+            
+            if (!adx) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            let condition, description, sentiment, risk, signalType, signalClass, signals, strength;
+            
+            if (adx > 25) {
+                condition = 'Strong Trend Confirmed';
+                strength = 'Strong';
+                description = `The ADX is at ${adx.toFixed(2)}, indicating a strong trending market. Trend-following strategies are more reliable in this environment.`;
+                sentiment = 'Strong directional movement';
+                risk = 'Low to Moderate';
+                signalType = 'Trend Following Recommended';
+                signalClass = 'bullish';
+                signals = [
+                    'Strong trending market identified',
+                    'Trend-following strategies recommended',
+                    'High probability of trend continuation',
+                    'Avoid counter-trend trades'
+                ];
+            } else if (adx > 20) {
+                condition = 'Moderate Trend Strength';
+                strength = 'Moderate';
+                description = `The ADX is at ${adx.toFixed(2)}, indicating a moderate trend. Some trend-following signals may be reliable, but exercise caution.`;
+                sentiment = 'Moderate directional movement';
+                risk = 'Moderate';
+                signalType = 'Cautious Trend Following';
+                signalClass = 'warning';
+                signals = [
+                    'Moderate trend strength detected',
+                    'Mixed reliability for trend signals',
+                    'Use additional confirmation',
+                    'Monitor for trend changes'
+                ];
+            } else {
+                condition = 'Weak Trend - Range Bound';
+                strength = 'Weak';
+                description = `The ADX is at ${adx.toFixed(2)}, indicating a weak or ranging market. Trend-following strategies may be less reliable.`;
+                sentiment = 'Weak directional movement';
+                risk = 'High for trend trades';
+                signalType = 'Range Trading Preferred';
+                signalClass = 'warning';
+                signals = [
+                    'Weak trending market',
+                    'Consider range-trading strategies',
+                    'Trend-following less reliable',
+                    'Wait for stronger directional movement'
+                ];
+            }
+            
+            section.className = `analysis-section ${signalClass}`;
+            document.getElementById('adxConditionHeader').textContent = condition;
+            document.getElementById('adxConditionHeader').className = `condition-header ${signalClass}`;
+            document.getElementById('adxDescription').textContent = description;
+            document.getElementById('adxValue').textContent = adx.toFixed(2);
+            document.getElementById('adxStrength').textContent = strength;
+            document.getElementById('adxSentiment').textContent = sentiment;
+            document.getElementById('adxRisk').textContent = risk;
+            
+            const signalHeader = document.getElementById('adxSignalHeader');
+            signalHeader.textContent = signalType;
+            signalHeader.className = `signal-header ${signalClass}`;
+            
+            const signalList = document.getElementById('adxSignalList');
+            signalList.innerHTML = signals.map(signal => 
+                `<li><span class="text-${signalClass === 'bullish' ? 'success' : signalClass === 'warning' ? 'warning' : 'info'}">${getSignalIcon(signalClass)}</span> ${signal}</li>`
+            ).join('');
+        }
+
+        function getEnhancedSignalFromData(data) {
+            // Use enhanced signal from API if available
+            if (data.enhanced_signal && data.enhanced_signal.signal) {
+                const signal = data.enhanced_signal.signal;
+                switch(signal) {
+                    case 'STRONG_BUY':
+                        return { 
+                            signal: 'STRONG BUY', 
+                            description: 'Strong Buy Signal', 
+                            class: 'bg-success fw-bold' 
+                        };
+                    case 'BUY':
+                        return { 
+                            signal: 'BUY', 
+                            description: 'Buy Signal', 
+                            class: 'bg-success' 
+                        };
+                    case 'SELL':
+                        return { 
+                            signal: 'SELL', 
+                            description: 'Sell Signal', 
+                            class: 'bg-danger' 
+                        };
+                    case 'STRONG_SELL':
+                        return { 
+                            signal: 'STRONG SELL', 
+                            description: 'Strong Sell Signal', 
+                            class: 'bg-danger fw-bold' 
+                        };
+                    default:
+                        return { 
+                            signal: 'HOLD', 
+                            description: 'Hold Signal', 
+                            class: 'bg-info' 
+                        };
+                }
+            }
+            
+            // Fallback to multi-factor analysis using latest data
+            const latestData = data.latest_data;
+            return calculateMultiFactorSignal(latestData);
+        }
+
+        function calculateMultiFactorSignal(latestData) {
+            let score = 0;
+            let signals = [];
+            
+            // EMA 50/200 Analysis (Weight: 2)
+            const ema50 = latestData.ema_50;
+            const ema200 = latestData.ema_200;
+            if (ema50 && ema200) {
+                if (ema50 > ema200) {
+                    score += 2; // Golden Cross
+                    signals.push('Golden Cross (+2)');
+                } else {
+                    score -= 2; // Death Cross
+                    signals.push('Death Cross (-2)');
+                }
+            }
+            
+            // Supertrend Analysis (Weight: 1)
+            const price = latestData.price;
+            const supertrend = latestData.supertrend;
+            if (price && supertrend) {
+                if (price > supertrend) {
+                    score += 1; // Bullish trend
+                    signals.push('Above Supertrend (+1)');
+                } else {
+                    score -= 1; // Bearish trend
+                    signals.push('Below Supertrend (-1)');
+                }
+            }
+            
+            // RSI Analysis (Weight: 2 for ideal zone, 1 for extremes)
+            const rsi = latestData.rsi;
+            if (rsi) {
+                if (rsi >= 40 && rsi <= 60) {
+                    score += 2; // Ideal momentum zone
+                    signals.push('RSI Ideal Zone (+2)');
+                } else if (rsi >= 30 && rsi < 40) {
+                    score += 1; // Moderate oversold
+                    signals.push('RSI Moderate Oversold (+1)');
+                } else if (rsi > 60 && rsi <= 70) {
+                    score -= 1; // Getting overbought
+                    signals.push('RSI Getting Overbought (-1)');
+                } else if (rsi > 70) {
+                    score -= 2; // Overbought
+                    signals.push('RSI Overbought (-2)');
+                } else if (rsi < 30) {
+                    score += 0; // Oversold but wait for confirmation
+                    signals.push('RSI Oversold (0)');
+                }
+            }
+            
+            // MACD Analysis (Weight: 1)
+            const macd = latestData.macd;
+            const macdSignal = latestData.macd_signal;
+            if (macd && macdSignal) {
+                if (macd > macdSignal) {
+                    score += 1; // Bullish momentum
+                    signals.push('MACD Bullish (+1)');
+                } else {
+                    score -= 1; // Bearish momentum
+                    signals.push('MACD Bearish (-1)');
+                }
+            }
+            
+            // ADX Analysis (Weight: 1 for confirmation)
+            const adx = latestData.adx;
+            if (adx) {
+                if (adx > 25) {
+                    score += 1; // Strong trend confirmed
+                    signals.push('Strong Trend (+1)');
+                } else {
+                    score -= 1; // Weak trend
+                    signals.push('Weak Trend (-1)');
+                }
+            }
+            
+            // Volume Analysis (Weight: 1)
+            const volume = latestData.volume;
+            const volumeSma = latestData.volume_sma;
+            if (volume && volumeSma) {
+                if (volume > volumeSma * 1.2) {
+                    score += 1; // High volume confirmation
+                    signals.push('High Volume (+1)');
+                } else if (volume < volumeSma * 0.8) {
+                    score -= 1; // Low volume warning
+                    signals.push('Low Volume (-1)');
+                }
+            }
+            
+            // Determine final signal based on score
+            console.log(`Multi-factor score: ${score}, Components: ${signals.join(', ')}`);
+            
+            if (score >= 4) {
+                return { 
+                    signal: 'STRONG BUY', 
+                    description: `Strong Buy Signal (Score: ${score})`, 
+                    class: 'bg-success fw-bold' 
+                };
+            } else if (score >= 2) {
+                return { 
+                    signal: 'BUY', 
+                    description: `Buy Signal (Score: ${score})`, 
+                    class: 'bg-success' 
+                };
+            } else if (score <= -4) {
+                return { 
+                    signal: 'STRONG SELL', 
+                    description: `Strong Sell Signal (Score: ${score})`, 
+                    class: 'bg-danger fw-bold' 
+                };
+            } else if (score <= -2) {
+                return { 
+                    signal: 'SELL', 
+                    description: `Sell Signal (Score: ${score})`, 
+                    class: 'bg-danger' 
+                };
+            } else {
+                return { 
+                    signal: 'HOLD', 
+                    description: `Hold Signal (Score: ${score})`, 
+                    class: 'bg-info' 
+                };
+            }
+        }
+
+        function getSignalIcon(signalClass) {
+            switch(signalClass) {
+                case 'bullish':
+                case 'oversold':
+                    return '✅';
+                case 'bearish':
+                case 'overbought':
+                    return '❌';
+                case 'warning':
+                    return '⚠️';
+                default:
+                    return '📊';
+            }
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000000000) {
+                return (num / 1000000000).toFixed(1) + 'B';
+            } else if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toLocaleString();
+        }
+
+        // Event listeners
+        document.getElementById('periodSelect').addEventListener('change', loadETFData);
+    </script>
+</body>
+</html>

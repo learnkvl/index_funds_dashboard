@@ -1,0 +1,26 @@
+# Environment and credentials
+.env
+
+# Virtual environments
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
+
+# IDE files (if you use these)
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data files
+*.pkl
+*.pickle
+100ETFS_info.pkl
+
+# Log files
+*.log

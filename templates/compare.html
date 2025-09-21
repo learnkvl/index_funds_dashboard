@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF Comparison | ETF Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .comparison-card { 
+            border-left: 4px solid #007bff; 
+            transition: transform 0.2s;
+        }
+        .comparison-card:hover { transform: translateY(-2px); }
+        .etf-selector { max-height: 200px; overflow-y: auto; }
+        .selected-etf { 
+            background-color: #e3f2fd; 
+            border: 2px solid #2196f3;
+            border-radius: 5px;
+            padding: 5px;
+            margin: 2px;
+            display: inline-block;
+        }
+        .metric-comparison { border-left: 3px solid #28a745; }
+        .loading { display: none; }
+        .loading.show { display: block; }
+        .chart-container { min-height: 400px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <span>← Back to Dashboard</span>
+            </a>
+            <h4 class="text-white mb-0">📊 ETF Comparison</h4>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- ETF Selection -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card comparison-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Select ETFs to Compare</h5>
+                        <div>
+                            <select class="form-select me-2" id="periodSelect" style="width: 150px; display: inline-block;">
+                                <option value="1mo">1 Month</option>
+                                <option value="3mo">3 Months</option>
+                                <option value="6mo" selected>6 Months</option>
+                                <option value="1y">1 Year</option>
+                                <option value="2y">2 Years</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="compareETFs()">Compare</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Available ETFs</h6>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="etfSearch" placeholder="Search ETFs...">
+                                    <button class="btn btn-outline-secondary" onclick="clearSearch()">Clear</button>
+                                </div>
+                                <div class="etf-selector border p-3" id="availableETFs">
+                                    <div class="text-center text-muted">Loading ETFs...</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Selected ETFs for Comparison <span class="badge bg-primary" id="selectedCount">0</span></h6>
+                                <div class="border p-3" style="min-height: 200px;" id="selectedETFs">
+                                    <div class="text-center text-muted">Select ETFs from the left to compare</div>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="clearSelection()">Clear All</button>
+                                    <button class="btn btn-outline-info btn-sm ms-2" onclick="addPopularETFs()">Add Popular</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading indicator -->
+        <div class="loading text-center" id="loadingIndicator">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading comparison data...</p>
+        </div>
+
+        <!-- Comparison Results -->
+        <div id="comparisonResults" style="display: none;">
+            <!-- Performance Chart -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Performance Comparison (Normalized Returns)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" id="performanceChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RSI Comparison -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>RSI Comparison</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" id="rsiComparisonChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metrics Comparison Table -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Current Metrics Comparison</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>ETF</th>
+                                            <th>Current Price</th>
+                                            <th>RSI</th>
+                                            <th>Volume</th>
+                                            <th>Signal</th>
+                                            <th>Performance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="metricsComparisonTable">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side-by-Side Analysis -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Side-by-Side Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row" id="sideAnalysis">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Correlation Matrix -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Correlation Matrix</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" id="correlationChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let availableETFs = [];
+        let selectedETFs = [];
+        let comparisonData = {};
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAvailableETFs();
+            setupSearchFilter();
+        });
+
+        async function loadAvailableETFs() {
+            try {
+                // For now, use a predefined list. In real implementation, fetch from API
+                availableETFs = [
+                    'SPY', 'QQQ', 'IWM', 'VTI', 'EFA', 'EEM', 'TLT', 'GLD', 'VNQ', 'XLF',
+                    'XLE', 'XLK', 'XLV', 'XLI', 'XLP', 'XLU', 'XLB', 'XLY', 'XLRE', 'XBI',
+                    'ARKK', 'ARKQ', 'ARKG', 'VGT', 'VDC', 'VDE', 'VHT', 'VIS', 'VOX', 'VAW'
+                ];
+                
+                displayAvailableETFs();
+                
+            } catch (error) {
+                console.error('Error loading ETFs:', error);
+                document.getElementById('availableETFs').innerHTML = 
+                    '<div class="text-center text-danger">Error loading ETFs</div>';
+            }
+        }
+
+        function displayAvailableETFs(filter = '') {
+            const container = document.getElementById('availableETFs');
+            const filteredETFs = availableETFs.filter(etf => 
+                etf.toLowerCase().includes(filter.toLowerCase())
+            );
+
+            container.innerHTML = '';
+            
+            if (filteredETFs.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">No ETFs found</div>';
+                return;
+            }
+
+            filteredETFs.forEach(etf => {
+                const button = document.createElement('button');
+                button.className = 'btn btn-outline-primary btn-sm me-1 mb-1';
+                button.textContent = etf;
+                button.onclick = () => selectETF(etf);
+                
+                if (selectedETFs.includes(etf)) {
+                    button.disabled = true;
+                    button.className = 'btn btn-secondary btn-sm me-1 mb-1';
+                }
+                
+                container.appendChild(button);
+            });
+        }
+
+        function selectETF(ticker) {
+            if (selectedETFs.includes(ticker)) return;
+            
+            if (selectedETFs.length >= 5) {
+                alert('Maximum 5 ETFs can be compared at once');
+                return;
+            }
+
+            selectedETFs.push(ticker);
+            updateSelectedDisplay();
+            displayAvailableETFs(document.getElementById('etfSearch').value);
+        }
+
+        function removeETF(ticker) {
+            selectedETFs = selectedETFs.filter(etf => etf !== ticker);
+            updateSelectedDisplay();
+            displayAvailableETFs(document.getElementById('etfSearch').value);
+        }
+
+        function updateSelectedDisplay() {
+            const container = document.getElementById('selectedETFs');
+            const countBadge = document.getElementById('selectedCount');
+            
+            countBadge.textContent = selectedETFs.length;
+            
+            if (selectedETFs.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">Select ETFs from the left to compare</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            selectedETFs.forEach(etf => {
+                const etfDiv = document.createElement('div');
+                etfDiv.className = 'selected-etf';
+                etfDiv.innerHTML = `
+                    ${etf} 
+                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeETF('${etf}')" style="padding: 0 5px;">×</button>
+                `;
+                container.appendChild(etfDiv);
+            });
+        }
+
+        function setupSearchFilter() {
+            const searchInput = document.getElementById('etfSearch');
+            searchInput.addEventListener('input', function() {
+                displayAvailableETFs(this.value);
+            });
+        }
+
+        function clearSearch() {
+            document.getElementById('etfSearch').value = '';
+            displayAvailableETFs();
+        }
+
+        function clearSelection() {
+            selectedETFs = [];
+            updateSelectedDisplay();
+            displayAvailableETFs(document.getElementById('etfSearch').value);
+        }
+
+        function addPopularETFs() {
+            const popular = ['SPY', 'QQQ', 'IWM', 'VTI'];
+            popular.forEach(etf => {
+                if (!selectedETFs.includes(etf) && selectedETFs.length < 5) {
+                    selectETF(etf);
+                }
+            });
+        }
+
+        function showLoading(show = true) {
+            const loading = document.getElementById('loadingIndicator');
+            const results = document.getElementById('comparisonResults');
+            
+            if (show) {
+                loading.classList.add('show');
+                results.style.display = 'none';
+            } else {
+                loading.classList.remove('show');
+                results.style.display = 'block';
+            }
+        }
+
+        async function compareETFs() {
+            if (selectedETFs.length < 2) {
+                alert('Please select at least 2 ETFs to compare');
+                return;
+            }
+
+            showLoading(true);
+
+            const period = document.getElementById('periodSelect').value;
+            
+            try {
+                // Fetch data for each selected ETF
+                const promises = selectedETFs.map(ticker => 
+                    fetch(`/api/etf/${ticker}?period=${period}`).then(r => r.json())
+                );
+                
+                const results = await Promise.all(promises);
+                
+                // Check for errors
+                const errors = results.filter(r => r.error);
+                if (errors.length > 0) {
+                    alert(`Error loading data for some ETFs: ${errors.map(e => e.error).join(', ')}`);
+                }
+
+                // Filter successful results
+                const successfulResults = results.filter(r => !r.error);
+                if (successfulResults.length < 2) {
+                    alert('Need at least 2 ETFs with valid data to compare');
+                    return;
+                }
+
+                comparisonData = {};
+                successfulResults.forEach((data, index) => {
+                    const ticker = selectedETFs[index];
+                    comparisonData[ticker] = data;
+                });
+
+                updateComparisonDisplay();
+
+            } catch (error) {
+                console.error('Error comparing ETFs:', error);
+                alert('Error loading comparison data. Please try again.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateComparisonDisplay() {
+            updateMetricsTable();
+            updateSideAnalysis();
+            generatePerformanceChart();
+            generateRSIChart();
+            generateCorrelationChart();
+        }
+
+        function updateMetricsTable() {
+            const tbody = document.getElementById('metricsComparisonTable');
+            tbody.innerHTML = '';
+
+            Object.keys(comparisonData).forEach(ticker => {
+                const data = comparisonData[ticker];
+                const latest = data.latest_data;
+                
+                const row = document.createElement('tr');
+                const rsiClass = getRSIClass(latest.rsi);
+                const signalInfo = getSignalInfo(latest.rsi);
+                
+                row.innerHTML = `
+                    <td><strong>${ticker}</strong></td>
+                    <td>${latest.price.toFixed(2)}</td>
+                    <td><span class="${rsiClass}">${latest.rsi.toFixed(2)}</span></td>
+                    <td>${formatVolume(latest.volume)}</td>
+                    <td><span class="badge ${signalInfo.class}">${signalInfo.text}</span></td>
+                    <td><button class="btn btn-sm btn-outline-primary" onclick="window.open('/etf/${ticker}', '_blank')">View</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateSideAnalysis() {
+            const container = document.getElementById('sideAnalysis');
+            container.innerHTML = '';
+
+            Object.keys(comparisonData).forEach(ticker => {
+                const data = comparisonData[ticker];
+                const latest = data.latest_data;
+                const etfInfo = data.etf_info;
+                
+                const colDiv = document.createElement('div');
+                colDiv.className = `col-md-${Math.floor(12 / Math.min(Object.keys(comparisonData).length, 4))}`;
+                
+                const rsiStatus = latest.rsi < 30 ? 'Oversold' : latest.rsi > 70 ? 'Overbought' : 'Normal';
+                const rsiClass = latest.rsi < 30 ? 'success' : latest.rsi > 70 ? 'danger' : 'primary';
+                
+                colDiv.innerHTML = `
+                    <div class="card metric-comparison mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">${ticker} - ${etfInfo.name}</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <h5 class="text-primary">${latest.price.toFixed(2)}</h5>
+                                    <small class="text-muted">Price</small>
+                                </div>
+                                <div class="col-6">
+                                    <h5 class="text-${rsiClass}">${latest.rsi.toFixed(2)}</h5>
+                                    <small class="text-muted">RSI</small>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="text-center">
+                                <span class="badge bg-${rsiClass}">${rsiStatus}</span>
+                                <div class="mt-2">
+                                    <small class="text-muted">AUM: ${etfInfo.aum}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(colDiv);
+            });
+        }
+
+        function generatePerformanceChart() {
+            // Simulate performance chart data
+            const chartData = [];
+            const dates = generateDateRange(30); // Last 30 days
+            
+            dates.forEach(date => {
+                Object.keys(comparisonData).forEach(ticker => {
+                    chartData.push({
+                        date: date,
+                        ticker: ticker,
+                        return: (Math.random() - 0.5) * 20 // Simulated return
+                    });
+                });
+            });
+
+            const spec = {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+                width: 700,
+                height: 400,
+                data: { values: chartData },
+                mark: 'line',
+                encoding: {
+                    x: { field: 'date', type: 'temporal', title: 'Date' },
+                    y: { field: 'return', type: 'quantitative', title: 'Return (%)' },
+                    color: { field: 'ticker', type: 'nominal', title: 'ETF' },
+                    tooltip: [
+                        { field: 'ticker', type: 'nominal' },
+                        { field: 'date', type: 'temporal', format: '%Y-%m-%d' },
+                        { field: 'return', type: 'quantitative', format: '.2f' }
+                    ]
+                },
+                title: 'Performance Comparison (Last 30 Days)'
+            };
+
+            vegaEmbed('#performanceChart', spec, { theme: 'quartz', actions: false });
+        }
+
+        function generateRSIChart() {
+            // Simulate RSI chart data
+            const chartData = [];
+            const dates = generateDateRange(30);
+            
+            dates.forEach(date => {
+                Object.keys(comparisonData).forEach(ticker => {
+                    chartData.push({
+                        date: date,
+                        ticker: ticker,
+                        rsi: Math.random() * 100 // Simulated RSI
+                    });
+                });
+            });
+
+            const spec = {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+                width: 700,
+                height: 400,
+                layer: [
+                    {
+                        data: { values: chartData },
+                        mark: 'line',
+                        encoding: {
+                            x: { field: 'date', type: 'temporal', title: 'Date' },
+                            y: { field: 'rsi', type: 'quantitative', title: 'RSI', scale: { domain: [0, 100] } },
+                            color: { field: 'ticker', type: 'nominal', title: 'ETF' },
+                            tooltip: [
+                                { field: 'ticker', type: 'nominal' },
+                                { field: 'date', type: 'temporal', format: '%Y-%m-%d' },
+                                { field: 'rsi', type: 'quantitative', format: '.2f' }
+                            ]
+                        }
+                    },
+                    {
+                        data: { values: [{ level: 70 }] },
+                        mark: { type: 'rule', color: 'red', strokeDash: [5, 5] },
+                        encoding: { y: { field: 'level', type: 'quantitative' } }
+                    },
+                    {
+                        data: { values: [{ level: 30 }] },
+                        mark: { type: 'rule', color: 'green', strokeDash: [5, 5] },
+                        encoding: { y: { field: 'level', type: 'quantitative' } }
+                    }
+                ],
+                title: 'RSI Comparison'
+            };
+
+            vegaEmbed('#rsiComparisonChart', spec, { theme: 'quartz', actions: false });
+        }
+
+        function generateCorrelationChart() {
+            // Simulate correlation matrix
+            const tickers = Object.keys(comparisonData);
+            const correlationData = [];
+            
+            tickers.forEach(ticker1 => {
+                tickers.forEach(ticker2 => {
+                    const correlation = ticker1 === ticker2 ? 1 : (Math.random() * 2 - 1);
+                    correlationData.push({
+                        ticker1: ticker1,
+                        ticker2: ticker2,
+                        correlation: correlation
+                    });
+                });
+            });
+
+            const spec = {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+                width: 400,
+                height: 400,
+                data: { values: correlationData },
+                mark: 'rect',
+                encoding: {
+                    x: { field: 'ticker1', type: 'ordinal', title: 'ETF' },
+                    y: { field: 'ticker2', type: 'ordinal', title: 'ETF' },
+                    color: { 
+                        field: 'correlation', 
+                        type: 'quantitative', 
+                        scale: { scheme: 'redblue', domain: [-1, 1] },
+                        title: 'Correlation'
+                    },
+                    tooltip: [
+                        { field: 'ticker1', type: 'nominal' },
+                        { field: 'ticker2', type: 'nominal' },
+                        { field: 'correlation', type: 'quantitative', format: '.3f' }
+                    ]
+                },
+                title: 'Correlation Matrix'
+            };
+
+            vegaEmbed('#correlationChart', spec, { theme: 'quartz', actions: false });
+        }
+
+        // Helper functions
+        function getRSIClass(rsi) {
+            if (rsi < 30) return 'text-success fw-bold';
+            if (rsi > 70) return 'text-danger fw-bold';
+            return 'text-primary';
+        }
+
+        function getSignalInfo(rsi) {
+            if (rsi < 30) return { text: 'BUY', class: 'bg-success' };
+            if (rsi < 40) return { text: 'WEAK BUY', class: 'bg-success' };
+            if (rsi > 70) return { text: 'SELL', class: 'bg-danger' };
+            if (rsi > 60) return { text: 'WEAK SELL', class: 'bg-warning' };
+            return { text: 'HOLD', class: 'bg-secondary' };
+        }
+
+        function formatVolume(volume) {
+            if (volume >= 1000000000) return (volume / 1000000000).toFixed(1) + 'B';
+            if (volume >= 1000000) return (volume / 1000000).toFixed(1) + 'M';
+            if (volume >= 1000) return (volume / 1000).toFixed(1) + 'K';
+            return volume.toLocaleString();
+        }
+
+        function generateDateRange(days) {
+            const dates = [];
+            const today = new Date();
+            for (let i = days; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                dates.push(date.toISOString().split('T')[0]);
+            }
+            return dates;
+        }
+    </script>
+</body>
+</html>
