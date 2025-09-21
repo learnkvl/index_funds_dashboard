@@ -714,7 +714,7 @@ def create_app():
 
     return app
 
-if __name__ == '__main__':
-    app = create_app()
-    logger.info("Starting Flask application with Supabase PostgreSQL backend")
-    app.run(debug=True, host='0.0.0.0', port=5097)
+# if __name__ == '__main__':
+#     app = create_app()
+#     logger.info("Starting Flask application with Supabase PostgreSQL backend")
+#     app.run(debug=True, host='0.0.0.0', port=5097)
